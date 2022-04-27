@@ -2,7 +2,7 @@ import os, sys, time, torch, math, numpy as np, cv2, collections
 import torch.nn as nn
 import torch.nn.functional as F
 
-################################### - classes 
+################################### - classes
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -20,7 +20,7 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
-    
+
 class HeatMap(torch.nn.Module):
     """Defines a differentiable Gaussian heatmap"""
     def __init__(self, out_res, sigma=0.5):
@@ -31,7 +31,7 @@ class HeatMap(torch.nn.Module):
         self.x = x
         self.y = y
         self.out_res = out_res
-    
+
     def forward(self, pts):
         bSize, nPts = pts.size(0), pts.size(1)
         x = self.x.repeat(bSize,nPts,1,1)
@@ -43,7 +43,7 @@ class HeatMap(torch.nn.Module):
         hms = -(xscore**2 + yscore**2)
         hms = torch.exp(hms/self.sigma)
         return hms
-    
+
 class SoftArgmax2D(torch.nn.Module):
     """ Implementation of a 2d soft arg-max function as an nn.Module, so that we can differentiate through arg-max operations."""
     def __init__(self, base_index=0, step_size=1, softmax_temp=1.0):
@@ -85,7 +85,7 @@ class LossNetwork(torch.nn.Module):
             '15': "relu3_3",
             '22': "relu4_3"
         }
-    
+
     def forward(self, x):
         output = {}
         for name, module in self.vgg_layers._modules.items():
@@ -107,7 +107,7 @@ def process_image(image,points,angle=0, flip=False, sigma=1,size=128, tight=16, 
     image, points = crop( image , points, size, tight )
     if flip:
         image = cv2.flip(image, 1)
-            
+
     image = image/255.0
     image = torch.from_numpy(image.swapaxes(2,1).swapaxes(1,0))
     output['image'] = image.type_as(torch.FloatTensor())
@@ -138,7 +138,7 @@ def crop( image, landmarks , size, tight=8):
         sh = size/image.shape[0]
         im = cv2.resize(image, dsize=(size,size),
                         interpolation=cv2.INTER_LINEAR)
-        
+
         pts_[:,0] = pts_[:,0]*sw
         pts_[:,1] = pts_[:,1]*sh
         return im, pts_
@@ -148,19 +148,19 @@ def crop( image, landmarks , size, tight=8):
 def affine_trans(image,landmarks,angle=None,size=None):
     if angle is None:
         angle = 30*torch.randn(1)
-       
-    
+
+
     (h, w) = image.shape[:2]
     (cX, cY) = (w // 2, h // 2)
- 
-    M = cv2.getRotationMatrix2D((cX, cY), -angle, 1.0)
+
+    M = cv2.getRotationMatrix2D((cX, cY), -float(angle), 1.0)
     cos = np.abs(M[0, 0])
     sin = np.abs(M[0, 1])
- 
+
     # compute the new bounding dimensions of the image
     nW = int((h * sin) + (w * cos))
     nH = int((h * cos) + (w * sin))
- 
+
     # adjust the rotation matrix to take into account translation
     M[0, 2] += (nW / 2) - cX
     M[1, 2] += (nH / 2) - cY
@@ -173,7 +173,7 @@ def affine_trans(image,landmarks,angle=None,size=None):
         dst = cv2.resize(dst, dsize=(size,size),
                         interpolation=cv2.INTER_LINEAR)
         M = [[sw,0],[0,sh]] @ M
-    
+
     new_landmarks = new_landmarks.dot(M.transpose())
     return dst, new_landmarks, M
 
@@ -233,6 +233,5 @@ def savetorchimgandptsv2(name,img,x,thick=2,mSize=4): # to use different colours
     cv2.drawMarker(improc, (int(x[6,0]), int(x[6,1])), (255,0,255), markerType=cv2.MARKER_TILTED_CROSS, markerSize=mSize, thickness=thick)
     cv2.drawMarker(improc, (int(x[7,0]), int(x[7,1])), (0,255,255), markerType=cv2.MARKER_CROSS, markerSize=mSize, thickness=thick)
     cv2.drawMarker(improc, (int(x[8,0]), int(x[8,1])), (255,128,0), markerType=cv2.MARKER_TILTED_CROSS, markerSize=mSize, thickness=thick)
-    cv2.drawMarker(improc, (int(x[9,0]), int(x[9,1])), (0,0,128), markerType=cv2.MARKER_CROSS, markerSize=mSize, thickness=thick)       
+    cv2.drawMarker(improc, (int(x[9,0]), int(x[9,1])), (0,0,128), markerType=cv2.MARKER_CROSS, markerSize=mSize, thickness=thick)
     cv2.imwrite(name, cv2.cvtColor( improc , cv2.COLOR_RGB2BGR))
-

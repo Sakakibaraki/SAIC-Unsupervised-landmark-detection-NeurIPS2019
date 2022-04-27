@@ -13,7 +13,7 @@ def main():
     # parse args
     global args
     args = Options().args
-    
+
     # copy all files from experiment
     cwd = os.getcwd()
     for ff in glob.glob("*.py"):
@@ -48,10 +48,10 @@ def main():
     tight = int(args.tight)
 
     model = mymodel(sigma=sigma,temperature=temperature, gradclip=gradclip, npts=npts, option=args.option, size=args.size, path_to_check=args.checkpoint)
-    
+
     plotkeys = ['input','target','generated']
     losskeys = list(model.loss.keys())
-    
+
     # define plotters
     global plotter
     if not args.visdom:
@@ -63,27 +63,27 @@ def main():
         plotter = dict.fromkeys(['images','losses'])
         plotter['images'] = dict( [ (key, VisdomLogger("images", port=int(args.port), env=experimentsName, opts={'title' : key})) for key in plotkeys ])
         plotter['losses'] = dict( [ (key, VisdomPlotLogger("line", port=int(args.port), env=experimentsName,opts={'title': key, 'xlabel' : 'Iteration', 'ylabel' : 'Loss'})) for key in losskeys]  )
-        
+
     # prepare average meters
     global meters, l_iteration
-    meterskey = ['batch_time', 'data_time'] 
+    meterskey = ['batch_time', 'data_time']
     meters = dict([(key,AverageMeter()) for key in meterskey])
     meters['losses'] = dict([(key,AverageMeter()) for key in losskeys])
     l_iteration = float(0.0)
-    
+
     # plot number of parameters
     params = sum([p.numel() for p in filter(lambda p: p.requires_grad, model.GEN.parameters())])
     print('GEN # trainable parameters: {}'.format(params))
     params = sum([p.numel() for p in filter(lambda p: p.requires_grad, model.FAN.parameters())])
     print('FAN # trainable parameters: {}'.format(params))
 
-    
-    
+
+
     # define data
     video_dataset = SuperDB(path=args.data_path,sigma=sigma,size=args.size,flip=flip,angle=angle,tight=tight, db=args.db)
     videoloader = DataLoader(video_dataset, batch_size=bSize, shuffle=True, num_workers=int(args.num_workers), pin_memory=True)
     print('Number of workers is {:d}, and bSize is {:d}'.format(int(args.num_workers),bSize))
-       
+
     # define optimizers
     lr_fan = args.lr_fan
     lr_gan = args.lr_gan
@@ -106,38 +106,38 @@ def main():
 
 
 def train_epoch(dataloader, model, myoptimizers, epoch, bSize):
-    
+
     itervideo = iter(dataloader)
     global l_iteration
     log_epoch = {}
     end = time.time()
     for i in range(0,2500):
-    
-        
+
+
         # - get data
-        all_data = next(itervideo,None) 
+        all_data = next(itervideo,None)
         if all_data is None:
             itervideo = iter(dataloader)
             all_data = next(itervideo, None)
         elif all_data['Im'].shape[0] < bSize:
             itervideo = iter(dataloader)
             all_data = next(itervideo, None)
-        
+
         # - set batch
         model._set_batch(all_data)
-        
+
         # - forward
         output = model.forward()
-        
+
         # - update parameters
         myoptimizers['GEN'].step()
         myoptimizers['FAN'].step()
-                
+
         meters['losses']['rec'].update(model.loss['rec'].item(), bSize)
         l_iteration = l_iteration + 1
 
-        
-        if i % 100 == 0:                
+
+        if i % 100 == 0:
             # - plot some images
             allimgs = None
             for (ii,imtmp) in enumerate(all_data['Im'].to('cpu').detach()):
@@ -152,15 +152,15 @@ def train_epoch(dataloader, model, myoptimizers, epoch, bSize):
 
             if plotter is not None:
                 plotter['images']['input'].log(torch.from_numpy(allimgs).permute(0,3,1,2))
-                plotter['images']['target'].log(all_data['ImP'].data)            
+                plotter['images']['target'].log(all_data['ImP'].data)
                 plotter['images']['generated'].log(output['Reconstructed'].cpu().data)
                 plotter['losses']['rec'].log( l_iteration, model.loss['rec'].item() )
-            
+
             save = torch.nn.functional.interpolate(torch.from_numpy(allimgs/255.0).permute(0,3,1,2),scale_factor=0.25)
             save_image(save, args.folder + '/image_{}_{}.png'.format(epoch,i))
-                    
-               
-        log_epoch[i] = model.loss       
+
+
+        log_epoch[i] = model.loss
         meters['batch_time'].update(time.time()-end)
         end = time.time()
         if i % args.print_freq == 0:
@@ -168,13 +168,11 @@ def train_epoch(dataloader, model, myoptimizers, epoch, bSize):
             mystr += 'Time {:.2f} ({:.2f}) '.format(meters['data_time'].val , meters['data_time'].avg )
             mystr += ' '.join(['Loss: {:s} {:.3f} ({:.3f}) '.format(k, meters['losses'][k].val , meters['losses'][k].avg ) for k in meters['losses'].keys()])
             print( mystr )
-            with open(args.folder + '/args_' + args.file[0:-8] + '.txt','a') as f: 
+            with open(args.folder + '/args_' + args.file[0:-8] + '.txt','a') as f:
                 print( mystr , file=f)
 
     with open(args.folder + '/args_' + args.file[0:-8] + '_' + str(epoch) + '.pkl','wb') as f:
-        pickle.dump(log_epoch,f)  
+        pickle.dump(log_epoch,f)
 
 if __name__ == '__main__':
     main()
-
-
