@@ -1,0 +1,12 @@
+# training files
+Exp_*
+list/
+
+# vscodeの設定
+.vscode
+
+# pythonの自動生成ファイル
+__pycache__
+
+# poetryの自動生成ファイル
+poetry.lock
