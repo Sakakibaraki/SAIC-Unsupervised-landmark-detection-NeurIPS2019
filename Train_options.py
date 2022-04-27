@@ -23,7 +23,7 @@ class Options():
         self._parser.add_argument('--npts', default=10, help='Number of points')
         self._parser.add_argument('--size', default=128, type=int, help='Size of images')
         self._parser.add_argument('--num_workers', default=12, help='Number of workers')
-        self._parser.add_argument('--visdom', default=True, help='Window for Visdom')
+        self._parser.add_argument('--visdom', default=False, help='Window for Visdom')
         self._parser.add_argument('--data_path', default='', help='Path to the data')
         self._parser.add_argument('--port', default=9001, help='visdom port')
         self._parser.add_argument('--db', default='CelebA', help='db')
@@ -52,7 +52,3 @@ class Options():
             os.mkdir(os.path.join(self.args.folder,'code'))
         with open(self.args.folder + '/args_' + self.args.file[0:-8] + '.txt','w') as f:
             print(' '.join(['--{:s} {} '.format(k, self.args.__getattribute__(k)) for k in list(self.args.__dict__.keys())]) + '\n',file=f)
-        
-
-
-
